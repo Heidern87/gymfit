@@ -1248,8 +1248,53 @@
       return `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='12' fill='%2311151c'/%3E%3Ccircle cx='50' cy='50' r='32' fill='${encodeURIComponent(c)}22' stroke='${encodeURIComponent(c)}' stroke-width='2'/%3E%3Ctext x='50' y='58' font-family='Inter,sans-serif' font-size='28' font-weight='800' fill='${encodeURIComponent(c)}' text-anchor='middle'%3E${letter}%3C/text%3E%3C/svg%3E`;
     }
 
-    function getExerciseImage(ex) {
-      return ex.imagem && ex.imagem.trim() !== '' ? ex.imagem : generateExerciseSVG(ex.nome, ex.musculo);
+    function getExerciseImageSrc(ex) {
+      // Se tiver imagem salva no localStorage, retorna ela diretamente
+      if (ex.imagem && ex.imagem.trim() !== '') {
+        return ex.imagem;
+      }
+      // Caso contrário, gera o slug e retorna objeto com caminho e extensões
+      const slug = ex.nome
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]/g, '_')
+        .replace(/_+/g, '_')
+        .replace(/^_|_$/g, '');
+      return {
+        slug: slug,
+        extensions: ['.gif', '.jpg', '.jpeg', '.png', '.webp'],
+        basePath: 'assets/exercicios/'
+      };
+    }
+
+    function loadExerciseImage(imgElement, ex, extIndex = 0) {
+      const data = getExerciseImageSrc(ex);
+      // Se for string (imagem do localStorage), usa direto
+      if (typeof data === 'string') {
+        imgElement.src = data;
+        imgElement.classList.remove('svg-thumb');
+        return;
+      }
+
+      const { slug, extensions, basePath } = data;
+      if (extIndex >= extensions.length) {
+        // Nenhuma extensão funcionou -> fallback SVG
+        imgElement.src = generateExerciseSVG(ex.nome, ex.musculo);
+        imgElement.classList.add('svg-thumb');
+        return;
+      }
+
+      const ext = extensions[extIndex];
+      const url = `${basePath}${slug}${ext}`;
+      imgElement.src = url;
+      imgElement.classList.remove('svg-thumb');
+
+      // Se falhar, tenta a próxima extensão
+      imgElement.onerror = function () {
+        this.onerror = null;
+        loadExerciseImage(this, ex, extIndex + 1);
+      };
     }
 
     // ============================================================
@@ -1512,23 +1557,76 @@
 
       container.innerHTML = '';
       filtered.forEach(ex => {
-        const imgSrc = getExerciseImage(ex);
-        container.innerHTML += `
-                    <div class="ex-list-item">
-                        <img src="${imgSrc}" class="ex-thumb" alt="${ex.nome}" onerror="this.src='${generateExerciseSVG(ex.nome, ex.musculo)}'; this.classList.add('svg-thumb');">
-                        <div class="ex-info">
-                            <strong>${ex.nome}</strong>
-                            <span>${ex.musculo} • ${ex.equip}</span>
-                        </div>
-                        <div class="ex-actions">
-                            <button class="btn btn-outline btn-sm" onclick="openConfigEx(${ex.id})">➕ Treino</button>
-                            <button class="btn btn-img btn-sm" onclick="openAdminEdit(${ex.id})">✏️</button>
-                            <button class="btn btn-danger btn-sm" onclick="deleteExercise(${ex.id})">✕</button>
-                        </div>
-                    </div>
-                `;
+        const item = document.createElement('div');
+        item.className = 'ex-list-item';
+
+        // Imagem
+        const img = document.createElement('img');
+        img.className = 'ex-thumb';
+        img.alt = ex.nome;
+        loadExerciseImage(img, ex, 0);
+
+        // Info
+        const info = document.createElement('div');
+        info.className = 'ex-info';
+        info.innerHTML = `<strong>${ex.nome}</strong><span>${ex.musculo} • ${ex.equip}</span>`;
+
+        // Ações
+        const actions = document.createElement('div');
+        actions.className = 'ex-actions';
+        actions.innerHTML = `
+            <button class="btn btn-outline btn-sm" onclick="openConfigEx(${ex.id})">➕ Treino</button>
+            <button class="btn btn-img btn-sm" onclick="openAdminEdit(${ex.id})">✏️</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteExercise(${ex.id})">✕</button>
+        `;
+
+        item.appendChild(img);
+        item.appendChild(info);
+        item.appendChild(actions);
+        container.appendChild(item);
       });
+
       renderFilterTabs();
+    }
+
+    function filterExercicios(query) {
+      const container = document.getElementById('exercicios-list');
+      const filtered = exercises.filter(e =>
+        e.nome.toLowerCase().includes(query.toLowerCase()) ||
+        e.musculo.toLowerCase().includes(query.toLowerCase()) ||
+        e.equip.toLowerCase().includes(query.toLowerCase())
+      );
+      if (filtered.length === 0) {
+        container.innerHTML = `<div class="empty-state"><h4>Nenhum resultado</h4></div>`;
+        return;
+      }
+      container.innerHTML = '';
+      filtered.forEach(ex => {
+        const item = document.createElement('div');
+        item.className = 'ex-list-item';
+
+        const img = document.createElement('img');
+        img.className = 'ex-thumb';
+        img.alt = ex.nome;
+        loadExerciseImage(img, ex, 0);
+
+        const info = document.createElement('div');
+        info.className = 'ex-info';
+        info.innerHTML = `<strong>${ex.nome}</strong><span>${ex.musculo} • ${ex.equip}</span>`;
+
+        const actions = document.createElement('div');
+        actions.className = 'ex-actions';
+        actions.innerHTML = `
+            <button class="btn btn-outline btn-sm" onclick="openConfigEx(${ex.id})">➕ Treino</button>
+            <button class="btn btn-img btn-sm" onclick="openAdminEdit(${ex.id})">✏️</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteExercise(${ex.id})">✕</button>
+        `;
+
+        item.appendChild(img);
+        item.appendChild(info);
+        item.appendChild(actions);
+        container.appendChild(item);
+      });
     }
 
     function renderFilterTabs() {
@@ -1548,37 +1646,6 @@
       if (el) el.classList.add('active');
       currentFilter = cat;
       renderExercicios();
-    }
-
-    function filterExercicios(query) {
-      const container = document.getElementById('exercicios-list');
-      const filtered = exercises.filter(e =>
-        e.nome.toLowerCase().includes(query.toLowerCase()) ||
-        e.musculo.toLowerCase().includes(query.toLowerCase()) ||
-        e.equip.toLowerCase().includes(query.toLowerCase())
-      );
-      if (filtered.length === 0) {
-        container.innerHTML = `<div class="empty-state"><h4>Nenhum resultado</h4></div>`;
-        return;
-      }
-      container.innerHTML = '';
-      filtered.forEach(ex => {
-        const imgSrc = getExerciseImage(ex);
-        container.innerHTML += `
-                    <div class="ex-list-item">
-                        <img src="${imgSrc}" class="ex-thumb" alt="${ex.nome}" onerror="this.src='${generateExerciseSVG(ex.nome, ex.musculo)}'; this.classList.add('svg-thumb');">
-                        <div class="ex-info">
-                            <strong>${ex.nome}</strong>
-                            <span>${ex.musculo} • ${ex.equip}</span>
-                        </div>
-                        <div class="ex-actions">
-                            <button class="btn btn-outline btn-sm" onclick="openConfigEx(${ex.id})">➕ Treino</button>
-                            <button class="btn btn-img btn-sm" onclick="openAdminEdit(${ex.id})">✏️</button>
-                            <button class="btn btn-danger btn-sm" onclick="deleteExercise(${ex.id})">✕</button>
-                        </div>
-                    </div>
-                `;
-      });
     }
 
     // ============================================================
