@@ -1248,6 +1248,13 @@
       return `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='12' fill='%2311151c'/%3E%3Ccircle cx='50' cy='50' r='32' fill='${encodeURIComponent(c)}22' stroke='${encodeURIComponent(c)}' stroke-width='2'/%3E%3Ctext x='50' y='58' font-family='Inter,sans-serif' font-size='28' font-weight='800' fill='${encodeURIComponent(c)}' text-anchor='middle'%3E${letter}%3C/text%3E%3C/svg%3E`;
     }
 
+    function getExerciseImage(ex) {
+      if (ex && ex.imagem && ex.imagem.trim() !== '') {
+        return ex.imagem;
+      }
+      return generateExerciseSVG(ex ? ex.nome : '', ex ? ex.musculo : '');
+    }
+
     function getExerciseImageSrc(ex) {
       // Se tiver imagem salva no localStorage, retorna ela diretamente
       if (ex.imagem && ex.imagem.trim() !== '') {
