@@ -952,27 +952,26 @@
   </header>
 
   <!-- ===== VIEW: TREINOS ===== -->
-  <div id="view-treinos" class="view active">
-    <div style="display:flex; justify-content:center; margin:20px 0 12px;">
-      <img src="assets/exercicios/src/logo/gimfitpro-logo.png" alt="GymFit Pro Logo"
-        style="width:180px; height:auto; max-width:80%; border-radius:12px; box-shadow: 0 4px 24px rgba(255,119,0,0.3);">
+  <div style="display:flex; justify-content:center; margin:16px 12px 8px; padding:0;">
+    <img src="assets/exercicios/src/logo/gimfitpro-logo.png" alt="GymFit Pro Logo"
+      style="width:100%; max-width:600px; height:auto; border-radius:16px; box-shadow: 0 6px 32px rgba(255,119,0,0.35);">
+  </div>
+
+  <div class="card workout-day-card" onclick="openWorkoutDetails('personalizado')"
+    style="border-left-color: var(--neon-orange); cursor:pointer;">
+    <div class="workout-info">
+      <div class="workout-title">🔥 Treino Personalizado</div>
+      <div class="workout-sub">Hipertrofia • Balanceado</div>
     </div>
+    <span class="badge-count" id="personalizadoCount">0</span>
+  </div>
 
-    <div class="card workout-day-card" onclick="openWorkoutDetails('personalizado')"
-      style="border-left-color: var(--neon-orange); cursor:pointer;">
-      <div class="workout-info">
-        <div class="workout-title">🔥 Treino Personalizado</div>
-        <div class="workout-sub">Hipertrofia • Balanceado</div>
-      </div>
-      <span class="badge-count" id="personalizadoCount">0</span>
-    </div>
+  <h4 style="margin: 20px 0 10px; color: var(--text-muted); font-size: 13px; font-weight:600; letter-spacing:0.5px;">
+    📋 Minha Rotina
+  </h4>
+  <div id="rotina-list"></div>
 
-    <h4 style="margin: 20px 0 10px; color: var(--text-muted); font-size: 13px; font-weight:600; letter-spacing:0.5px;">
-      📋 Minha Rotina
-    </h4>
-    <div id="rotina-list"></div>
-
-    <button class="fab" onclick="playSound('click'); openModal('modalAddTreino')">+</button>
+  <button class="fab" onclick="playSound('click'); openModal('modalAddTreino')">+</button>
   </div>
 
   <!-- ===== VIEW: EXERCÍCIOS ===== -->
