@@ -523,6 +523,22 @@
       border-top: 1px solid var(--border);
     }
 
+    /* Modal centralizado (ex: senha admin) */
+    .modal-centralizado {
+      align-items: center !important;
+    }
+
+    .modal-centralizado .modal-content {
+      transform: translateY(0) scale(0.95);
+      border-radius: 24px;
+      margin: 0 auto;
+      max-height: 80vh;
+    }
+
+    .modal-centralizado.active .modal-content {
+      transform: translateY(0) scale(1);
+    }
+
     .modal-overlay.active .modal-content {
       transform: translateY(0);
     }
@@ -1282,8 +1298,7 @@
 
   <!-- ===== MODAL: SENHA ADMIN ===== -->
   <div class="modal-overlay" id="modalAdminPassword">
-    <div class="modal-content"
-      style="max-width:380px; text-align:center; border-radius:24px; padding:32px 24px 28px; margin-top:10vh;">
+    <div class="modal-content" style="max-width:380px; text-align:center; border-radius:24px; padding:32px 24px 28px;">
       <div style="margin-bottom:16px;">
         <div
           style="width:56px; height:56px; background:linear-gradient(135deg, var(--neon-orange), #ff5500); border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 12px; font-size:28px;">
