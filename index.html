@@ -1178,13 +1178,14 @@
       exerciseCatalog.forEach(ex => {
         const musculo = ex.primary ? ex.primary.split(',')[0].trim() : 'Outros';
         const equip = ex.equipment && ex.equipment.length > 0 ? ex.equipment[0] : 'Não especificado';
-        // Evita duplicatas (se por acaso já existir algum com o mesmo nome)
-        if (!exercises.some(e => e.nome === ex.title)) {
+        // Evita duplicatas (case insensitive)
+        if (!exercises.some(e => e.nome.toLowerCase() === ex.title.toLowerCase())) {
           exercises.push({
             id: Date.now() + Math.random() * 1000,
             nome: ex.title,
             musculo: musculo,
             equip: equip,
+            id_num: ex.id_num || null   // <-- ESSENCIAL para as imagens
           });
         }
       });
@@ -1212,26 +1213,49 @@
     // FUNÇÃO DE CARREGAMENTO DE IMAGEM (PRIORIZA MAPA)
     // ============================================================
 
-    function loadExerciseImage(imgElement, exercise, extIndex = 0) {
-      const nomeExercicio = exercise.nome;
-
-      // 1. Tenta buscar no mapa carregado do exercises.json
-      if (exerciseImageMap && exerciseImageMap[nomeExercicio]) {
-        const caminho = 'assets/exercicios/' + exerciseImageMap[nomeExercicio];
-        imgElement.src = caminho;
-        imgElement.classList.remove('svg-thumb');
-        // Se a imagem falhar, usa fallback
-        imgElement.onerror = function () {
-          this.onerror = null;
-          fallbackLoadExerciseImage(this, exercise, 0);
-        };
+    function loadExerciseImage(imgElement, exercise) {
+      // Tenta encontrar o exercício no catálogo pelo título (traduzido)
+      const catalogEntry = exerciseCatalog.find(ex => ex.title === exercise.nome);
+      if (catalogEntry && catalogEntry.id_num) {
+        const idNum = catalogEntry.id_num;
+        const basePath = `assets/exercicios/src/exercises/${idNum}/`;
+        // Lista de possíveis nomes de arquivo (ordem de preferência)
+        const names = [
+          `${idNum}.png`,
+          `${idNum}.jpg`,
+          `${idNum}.jpeg`,
+          `${idNum}.gif`,
+          `${idNum}.webp`,
+          `${idNum}-relaxation.png`,
+          `${idNum}-tension.png`,
+          `${idNum}-relaxation.svg`,
+          `${idNum}-tension.svg`,
+          `${idNum}.svg`
+        ];
+        // Tenta carregar cada um até achar um que funcione
+        tryLoadImages(imgElement, basePath, names, 0, exercise);
         return;
       }
-
-      // 2. Fallback: método antigo (slug + extensões)
-      fallbackLoadExerciseImage(imgElement, exercise, extIndex);
+      // Se não encontrou no catálogo ou não tem id_num, usa fallback
+      fallbackLoadExerciseImage(imgElement, exercise, 0);
     }
 
+    function tryLoadImages(imgElement, basePath, names, index, exercise) {
+      if (index >= names.length) {
+        // Nenhuma imagem encontrada, usar fallback
+        fallbackLoadExerciseImage(imgElement, exercise, 0);
+        return;
+      }
+      const url = basePath + names[index];
+      imgElement.src = url;
+      imgElement.classList.remove('svg-thumb');
+      imgElement.onerror = function () {
+        this.onerror = null;
+        tryLoadImages(this, basePath, names, index + 1, exercise);
+      };
+    }
+
+    // Fallback: método antigo (slug + extensões) - mantido
     function fallbackLoadExerciseImage(imgElement, exercise, extIndex) {
       const slug = getSlug(exercise.nome);
       const extensions = ['.gif', '.jpg', '.jpeg', '.png', '.webp'];
