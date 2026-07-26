@@ -937,6 +937,16 @@
       max-width: 100%;
       height: auto;
     }
+
+
+    #modalNotificacao .modal-content {
+      background: #1a2028;
+      border: 1px solid rgba(255, 119, 0, 0.2);
+    }
+
+    #modalNotificacao .modal-header {
+      border-bottom: none;
+    }
   </style>
 </head>
 
@@ -1253,6 +1263,21 @@
     </div>
   </div>
 
+  <!-- ===== MODAL: NOTIFICAÇÃO PERSONALIZADA ===== -->
+  <div class="modal-overlay" id="modalNotificacao">
+    <div class="modal-content" style="max-width:400px; text-align:center; border-radius:24px;">
+      <div class="modal-header" style="border-bottom:none; padding-bottom:8px; justify-content:center;">
+        <h3 id="notifTitulo" style="font-size:20px; color:var(--neon-orange);">Título</h3>
+      </div>
+      <div id="notifMensagem" style="padding:8px 0 16px; color:var(--text-muted); font-size:15px; line-height:1.5;">
+        Mensagem aqui
+      </div>
+      <div id="notifBotoes" style="display:flex; gap:12px; justify-content:center; flex-wrap:wrap; margin-top:8px;">
+        <button class="btn btn-orange" id="notifOk" style="flex:1; min-width:100px;">OK</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ===== SCRIPT ===== -->
   <script>
     // ============================================================
@@ -1461,12 +1486,13 @@
     // ============================================================
 
     function openAdminProtected() {
-      const pass = prompt("🔑 Digite a senha de Administrador:");
-      if (pass === ADMIN_PASSWORD) {
-        openModal('modalAdmin');
-      } else if (pass !== null) {
-        alert("❌ Senha incorreta!");
-      }
+      showPrompt('Acesso Admin', 'Digite a senha de Administrador:', function (pass) {
+        if (pass === ADMIN_PASSWORD) {
+          openModal('modalAdmin');
+        } else if (pass !== null && pass !== '') {
+          showNotification('Erro', '❌ Senha incorreta!');
+        }
+      }, 'Digite a senha...');
     }
 
     // ============================================================
@@ -1633,8 +1659,8 @@
 
     function saveTreino() {
       const nome = document.getElementById('nomeTreino').value.trim();
-      if (!nome) { alert('Digite o nome do treino.'); return; }
-      if (selectedDays.length === 0) { alert('Selecione pelo menos um dia.'); return; }
+      if (!nome) { showNotification('Digite o nome do treino.'); return; }
+      if (selectedDays.length === 0) { showNotification('Selecione pelo menos um dia.'); return; }
       const novo = { id: Date.now(), nome: nome.toUpperCase(), dia: selectedDays.join(', '), exercicios: [] };
       meusTreinos.push(novo);
       saveTreinos();
@@ -1675,8 +1701,8 @@
       const treino = meusTreinos.find(t => t.id === id);
       if (!treino) return;
       const nome = document.getElementById('editNomeTreino').value.trim();
-      if (!nome) { alert('Digite o nome do treino.'); return; }
-      if (editSelectedDays.length === 0) { alert('Selecione pelo menos um dia.'); return; }
+      if (!nome) { showNotification('Digite o nome do treino.'); return; }
+      if (editSelectedDays.length === 0) { showNotification('Selecione pelo menos um dia.'); return; }
       treino.nome = nome.toUpperCase();
       treino.dia = editSelectedDays.join(', ');
       saveTreinos();
@@ -1686,7 +1712,7 @@
     }
 
     function deleteTreino(id) {
-      if (!confirm('Tem certeza que deseja excluir este treino?')) return;
+      if (!showConfirm('Tem certeza que deseja excluir este treino?')) return;
       meusTreinos = meusTreinos.filter(t => t.id !== id);
       saveTreinos();
       renderTreinos();
@@ -1905,7 +1931,7 @@
       const musculo = document.getElementById('adminMusculo').value.trim();
       const equip = document.getElementById('adminEquip').value.trim();
       if (!nome || !musculo || !equip) {
-        alert('Preencha todos os campos.');
+        showNotification('Preencha todos os campos.');
         return;
       }
       const editId = document.getElementById('editExerciseId').value;
@@ -1928,7 +1954,7 @@
     }
 
     function deleteExercise(id) {
-      if (!confirm('Tem certeza que deseja excluir este exercício?')) return;
+      if (!showConfirm('Tem certeza que deseja excluir este exercício?')) return;
       exercises = exercises.filter(e => e.id !== id);
       saveExercises();
       renderExercicios();
@@ -2032,7 +2058,7 @@
     function savePeso() {
       const input = document.getElementById('pesoInput');
       const val = parseFloat(input.value);
-      if (isNaN(val) || val <= 0) { alert('Digite um peso válido.'); return; }
+      if (isNaN(val) || val <= 0) { showNotification('Digite um peso válido.'); return; }
       pesoData.push(val);
       localStorage.setItem('gymfit_peso', JSON.stringify(pesoData));
       input.value = '';
@@ -2071,6 +2097,112 @@
           }
         }
       });
+    }
+
+    // ============================================================
+    // NOTIFICAÇÕES PERSONALIZADAS (substitui alert/confirm/prompt)
+    // ============================================================
+
+    let notifCallback = null; // para confirm/prompt
+
+    function showNotification(titulo, mensagem, tipo = 'info') {
+      const modal = document.getElementById('modalNotificacao');
+      document.getElementById('notifTitulo').textContent = titulo;
+      document.getElementById('notifMensagem').textContent = mensagem;
+
+      // Esconde todos os botões, mostra apenas o OK
+      const botoes = document.getElementById('notifBotoes');
+      botoes.innerHTML = `<button class="btn btn-orange" id="notifOk" style="flex:1; min-width:100px;">OK</button>`;
+
+      // Fecha ao clicar em OK
+      document.getElementById('notifOk').onclick = function () {
+        closeModal('modalNotificacao');
+        if (notifCallback) {
+          notifCallback(true);
+          notifCallback = null;
+        }
+      };
+
+      openModal('modalNotificacao');
+    }
+
+    function showConfirm(titulo, mensagem, callback) {
+      const modal = document.getElementById('modalNotificacao');
+      document.getElementById('notifTitulo').textContent = titulo;
+      document.getElementById('notifMensagem').textContent = mensagem;
+
+      const botoes = document.getElementById('notifBotoes');
+      botoes.innerHTML = `
+    <button class="btn btn-outline" id="notifCancelar" style="flex:1; min-width:80px;">Cancelar</button>
+    <button class="btn btn-orange" id="notifConfirmar" style="flex:1; min-width:80px;">Confirmar</button>
+  `;
+
+      notifCallback = callback || function () { };
+
+      document.getElementById('notifCancelar').onclick = function () {
+        closeModal('modalNotificacao');
+        if (notifCallback) {
+          notifCallback(false);
+          notifCallback = null;
+        }
+      };
+
+      document.getElementById('notifConfirmar').onclick = function () {
+        closeModal('modalNotificacao');
+        if (notifCallback) {
+          notifCallback(true);
+          notifCallback = null;
+        }
+      };
+
+      openModal('modalNotificacao');
+    }
+
+    function showPrompt(titulo, mensagem, callback, placeholder = '') {
+      const modal = document.getElementById('modalNotificacao');
+      document.getElementById('notifTitulo').textContent = titulo;
+
+      const msgContainer = document.getElementById('notifMensagem');
+      msgContainer.innerHTML = `
+    <p style="margin-bottom:12px; color:var(--text-muted);">${mensagem}</p>
+    <input type="text" id="notifInput" class="input" placeholder="${placeholder}" style="margin-bottom:0; text-align:center;">
+  `;
+
+      const botoes = document.getElementById('notifBotoes');
+      botoes.innerHTML = `
+    <button class="btn btn-outline" id="notifCancelar" style="flex:1; min-width:80px;">Cancelar</button>
+    <button class="btn btn-orange" id="notifConfirmar" style="flex:1; min-width:80px;">OK</button>
+  `;
+
+      notifCallback = callback || function () { };
+
+      document.getElementById('notifCancelar').onclick = function () {
+        closeModal('modalNotificacao');
+        if (notifCallback) {
+          notifCallback(null);
+          notifCallback = null;
+        }
+      };
+
+      document.getElementById('notifConfirmar').onclick = function () {
+        const valor = document.getElementById('notifInput').value;
+        closeModal('modalNotificacao');
+        if (notifCallback) {
+          notifCallback(valor);
+          notifCallback = null;
+        }
+      };
+
+      // Enter no input confirma
+      document.getElementById('notifInput').addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') {
+          document.getElementById('notifConfirmar').click();
+        }
+      });
+
+      openModal('modalNotificacao');
+      // Foca no input após abrir
+      setTimeout(() => document.getElementById('notifInput').focus(), 300);
     }
 
     // ============================================================
