@@ -1279,6 +1279,32 @@
   </div>
 
   <!-- ===== SCRIPT ===== -->
+
+  <!-- ===== MODAL: SENHA ADMIN ===== -->
+  <div class="modal-overlay" id="modalAdminPassword">
+    <div class="modal-content"
+      style="max-width:380px; text-align:center; border-radius:24px; padding:32px 24px 28px; margin-top:10vh;">
+      <div style="margin-bottom:16px;">
+        <div
+          style="width:56px; height:56px; background:linear-gradient(135deg, var(--neon-orange), #ff5500); border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 12px; font-size:28px;">
+          🔑</div>
+        <h3 style="color:#fff; font-size:20px; font-weight:700;">Acesso Admin</h3>
+        <p style="color:var(--text-muted); font-size:13px; margin-top:4px;">Digite a senha para continuar</p>
+      </div>
+
+      <input type="password" id="adminPasswordInput" class="input" placeholder="Digite a senha..."
+        style="text-align:center; font-size:16px; letter-spacing:4px; margin-bottom:16px;"
+        onkeydown="if(event.key==='Enter') confirmAdminPassword()">
+
+      <div style="display:flex; gap:10px;">
+        <button class="btn btn-outline" onclick="closeModal('modalAdminPassword')" style="flex:1;">Cancelar</button>
+        <button class="btn btn-orange" onclick="confirmAdminPassword()" style="flex:1;">Entrar</button>
+      </div>
+
+      <p id="adminPasswordError" style="color:var(--danger); font-size:12px; margin-top:12px; display:none;">❌ Senha
+        incorreta. Tente novamente.</p>
+    </div>
+  </div>
   <script>
     // ============================================================
     // CARREGAMENTO DO CATÁLOGO E MAPA DE IMAGENS
@@ -1486,13 +1512,10 @@
     // ============================================================
 
     function openAdminProtected() {
-      showPrompt('Acesso Admin', 'Digite a senha de Administrador:', function (pass) {
-        if (pass === ADMIN_PASSWORD) {
-          openModal('modalAdmin');
-        } else if (pass !== null && pass !== '') {
-          showNotification('Erro', '❌ Senha incorreta!');
-        }
-      }, 'Digite a senha...');
+      // Abre o modal de senha
+      document.getElementById('modalAdminPassword').classList.add('active');
+      document.getElementById('adminPasswordInput').value = '';
+      document.getElementById('adminPasswordInput').focus();
     }
 
     // ============================================================
@@ -2203,6 +2226,25 @@
       openModal('modalNotificacao');
       // Foca no input após abrir
       setTimeout(() => document.getElementById('notifInput').focus(), 300);
+    }
+
+    function confirmAdminPassword() {
+      const input = document.getElementById('adminPasswordInput');
+      const error = document.getElementById('adminPasswordError');
+      const pass = input.value.trim();
+
+      if (pass === ADMIN_PASSWORD) {
+        closeModal('modalAdminPassword');
+        openModal('modalAdmin');
+        error.style.display = 'none';
+      } else {
+        error.style.display = 'block';
+        input.value = '';
+        input.focus();
+        setTimeout(() => {
+          error.style.display = 'none';
+        }, 3000);
+      }
     }
 
     // ============================================================
