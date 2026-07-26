@@ -763,7 +763,6 @@
       align-items: center;
     }
 
-    /* Caixa explicativa do nome do arquivo no Admin */
     .file-hint-box {
       background: rgba(0, 240, 255, 0.08);
       border: 1px solid rgba(0, 240, 255, 0.2);
@@ -781,6 +780,12 @@
       color: var(--neon-green);
       font-family: monospace;
       font-weight: bold;
+    }
+
+    /* Estilo para o datalist (sugestões) */
+    input[list]::-webkit-calendar-picker-indicator {
+      filter: invert(0.6);
+      cursor: pointer;
     }
 
     ::-webkit-scrollbar {
@@ -806,7 +811,6 @@
       <div class="header-title" id="viewTitle">🏋️ Vamos treinar?</div>
       <div class="header-sub" id="viewSub">Seja focado, seja consistente.</div>
     </div>
-    <!-- ÁREA DE ADMIN PROTEGIDA POR SENHA -->
     <div class="avatar" onclick="openAdminProtected()" title="Painel Admin">⚙️</div>
   </header>
 
@@ -1080,9 +1084,10 @@
         <input type="hidden" id="editExerciseId">
 
         <div class="form-group">
-          <label>Nome do Exercício</label>
-          <input type="text" class="input" id="adminNome" placeholder="Ex: Supino Declinado com Barra"
-            oninput="updateFileHint(this.value)">
+          <label>Nome do Exercício (digite para ver sugestões)</label>
+          <input type="text" class="input" id="adminNome" placeholder="Ex: Bench Press" list="exercicioSugestoes"
+            oninput="updateFileHint(this.value); autoFillFromCatalog(this.value)">
+          <datalist id="exercicioSugestoes"></datalist>
         </div>
 
         <!-- DICA DE NOME DE ARQUIVO PARA O GITHUB -->
@@ -1114,10 +1119,149 @@
 
   <!-- ===== SCRIPT ===== -->
   <script>
+    // ============================================================
+    // CARREGAMENTO DO CATÁLOGO E MAPA DE IMAGENS
+    // ============================================================
+
+    let exerciseImageMap = {}; // title -> caminho da imagem (relativo a assets/exercicios/)
+    let exerciseCatalog = []; // array completo dos objetos do JSON
+    let catalogTitles = []; // lista de títulos para autocomplete
+
+    async function loadExerciseMap() {
+      try {
+        const response = await fetch('assets/exercicios/exercises.json');
+        if (!response.ok) throw new Error('Arquivo não encontrado');
+        const data = await response.json();
+        exerciseCatalog = data;
+
+        data.forEach(ex => {
+          const idNum = ex.id_num; // ex: "0042"
+          const title = ex.title; // ex: "Bench Press"
+          const imgArray = ex.img; // ex: ["_images/web/bench-press-1.png", ...]
+          if (title && idNum && imgArray && imgArray.length > 0) {
+            // Extrai apenas o nome do arquivo (ex: "bench-press-1.png")
+            const fileName = imgArray[0].split('/').pop();
+            // Monta o caminho relativo à pasta assets/exercicios/
+            const path = `src/exercises/${idNum}/${fileName}`;
+            exerciseImageMap[title] = path;
+            catalogTitles.push(title);
+          }
+        });
+        catalogTitles.sort();
+        console.log(`Catálogo carregado: ${catalogTitles.length} exercícios com imagem.`);
+        populateSuggestions();
+        // Se não houver exercícios cadastrados, importar todos do catálogo
+        if (exercises.length === 0 && catalogTitles.length > 0) {
+          importExercisesFromCatalog();
+        }
+      } catch (error) {
+        console.warn('Erro ao carregar exercises.json:', error);
+        exerciseImageMap = null;
+      }
+    }
+
+    function populateSuggestions() {
+      const datalist = document.getElementById('exercicioSugestoes');
+      datalist.innerHTML = '';
+      catalogTitles.forEach(title => {
+        const option = document.createElement('option');
+        option.value = title;
+        datalist.appendChild(option);
+      });
+    }
+
+    // ============================================================
+    // IMPORTAÇÃO AUTOMÁTICA DO CATÁLOGO
+    // ============================================================
+
+    function importExercisesFromCatalog() {
+      exerciseCatalog.forEach(ex => {
+        const musculo = ex.primary ? ex.primary.split(',')[0].trim() : 'Outros';
+        const equip = ex.equipment && ex.equipment.length > 0 ? ex.equipment[0] : 'Não especificado';
+        // Evita duplicatas (se por acaso já existir algum com o mesmo nome)
+        if (!exercises.some(e => e.nome === ex.title)) {
+          exercises.push({
+            id: Date.now() + Math.random() * 1000,
+            nome: ex.title,
+            musculo: musculo,
+            equip: equip,
+          });
+        }
+      });
+      saveExercises();
+      renderExercicios();
+      renderAdminList();
+      console.log('Exercícios importados do catálogo:', exercises.length);
+    }
+
+    // ============================================================
+    // AUTOCOMPLETE E PREENCHIMENTO AUTOMÁTICO NO ADMIN
+    // ============================================================
+
+    function autoFillFromCatalog(value) {
+      const found = exerciseCatalog.find(ex => ex.title === value);
+      if (found) {
+        document.getElementById('adminMusculo').value = found.primary ? found.primary.split(',')[0].trim() : '';
+        document.getElementById('adminEquip').value = found.equipment && found.equipment.length > 0 ? found.equipment[0] : '';
+        // Atualiza a dica do nome do arquivo
+        updateFileHint(value);
+      }
+    }
+
+    // ============================================================
+    // FUNÇÃO DE CARREGAMENTO DE IMAGEM (PRIORIZA MAPA)
+    // ============================================================
+
+    function loadExerciseImage(imgElement, exercise, extIndex = 0) {
+      const nomeExercicio = exercise.nome;
+
+      // 1. Tenta buscar no mapa carregado do exercises.json
+      if (exerciseImageMap && exerciseImageMap[nomeExercicio]) {
+        const caminho = 'assets/exercicios/' + exerciseImageMap[nomeExercicio];
+        imgElement.src = caminho;
+        imgElement.classList.remove('svg-thumb');
+        // Se a imagem falhar, usa fallback
+        imgElement.onerror = function () {
+          this.onerror = null;
+          fallbackLoadExerciseImage(this, exercise, 0);
+        };
+        return;
+      }
+
+      // 2. Fallback: método antigo (slug + extensões)
+      fallbackLoadExerciseImage(imgElement, exercise, extIndex);
+    }
+
+    function fallbackLoadExerciseImage(imgElement, exercise, extIndex) {
+      const slug = getSlug(exercise.nome);
+      const extensions = ['.gif', '.jpg', '.jpeg', '.png', '.webp'];
+      const basePath = 'assets/exercicios/';
+
+      if (extIndex >= extensions.length) {
+        imgElement.src = generateExerciseSVG(exercise.nome, exercise.musculo);
+        imgElement.classList.add('svg-thumb');
+        return;
+      }
+
+      const ext = extensions[extIndex];
+      const url = `${basePath}${slug}${ext}`;
+      imgElement.src = url;
+      imgElement.classList.remove('svg-thumb');
+
+      imgElement.onerror = function () {
+        this.onerror = null;
+        fallbackLoadExerciseImage(this, exercise, extIndex + 1);
+      };
+    }
+
+    // ============================================================
     // SENHA DO PAINEL ADMIN
+    // ============================================================
+
     const ADMIN_PASSWORD = "123";
 
     let exercises = JSON.parse(localStorage.getItem('gymfit_exercises')) || [];
+    // Se não houver exercícios, usamos uma lista inicial mínima (será substituída pela importação)
     if (exercises.length === 0) {
       exercises = [
         { id: 1, nome: "Supino Reto com Barra", musculo: "Peito", equip: "Barra" },
@@ -1200,32 +1344,6 @@
     function updateFileHint(val) {
       const slug = getSlug(val);
       document.getElementById('suggestedFileName').innerText = `${slug}.gif (ou .png/.jpg)`;
-    }
-
-    function loadExerciseImage(imgElement, ex, extIndex = 0) {
-      const slug = getSlug(ex.nome);
-      const extensions = ['.gif', '.jpg', '.jpeg', '.png', '.webp'];
-      const basePath = 'assets/exercicios/';
-
-      if (extIndex >= extensions.length) {
-        imgElement.src = generateExerciseSVG(ex.nome, ex.musculo);
-        imgElement.classList.add('svg-thumb');
-        return;
-      }
-
-      const ext = extensions[extIndex];
-      const url = `${basePath}${slug}${ext}`;
-      imgElement.src = url;
-      imgElement.classList.remove('svg-thumb');
-
-      imgElement.onerror = function () {
-        this.onerror = null;
-        loadExerciseImage(this, ex, extIndex + 1);
-      };
-    }
-
-    function getExerciseImage(ex) {
-      return `assets/exercicios/${getSlug(ex.nome)}.gif`;
     }
 
     // ============================================================
@@ -1799,7 +1917,11 @@
     // INICIALIZAÇÃO
     // ============================================================
 
-    function init() {
+    async function init() {
+      // Carrega o catálogo e mapa de imagens
+      await loadExerciseMap();
+
+      // Renderiza tudo
       renderTreinos();
       renderExercicios();
       updateChart();
@@ -1811,6 +1933,7 @@
     document.addEventListener('DOMContentLoaded', init);
     if (document.readyState === 'complete' || document.readyState === 'interactive') init();
 
+    // Expor funções globalmente
     window.switchView = switchView;
     window.openModal = openModal;
     window.closeModal = closeModal;
@@ -1840,6 +1963,8 @@
     window.deleteTreino = deleteTreino;
     window.openAdminProtected = openAdminProtected;
     window.updateFileHint = updateFileHint;
+    window.autoFillFromCatalog = autoFillFromCatalog;
+    window.loadExerciseImage = loadExerciseImage;
   </script>
 </body>
 
