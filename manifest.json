@@ -1,0 +1,27 @@
+{
+  "name": "GymFit Pro",
+  "short_name": "GymFit",
+  "description": "App de treinos e exercícios físicos completo e gratuito.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0c10",
+  "theme_color": "#ff7700",
+  "orientation": "portrait",
+  "id": "gymfit-pro",
+  "lang": "pt-BR",
+  "categories": ["fitness", "health", "sports"],
+  "icons": [
+    {
+      "src": "icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

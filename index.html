@@ -4,10 +4,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#ff7700">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="GymFit">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon-192x192.png">
   <title>GymFit Pro</title>
 
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
-  <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <style>
@@ -984,11 +989,11 @@
         style="width:180px; height:auto; max-width:80%; border-radius:12px; box-shadow: 0 4px 24px rgba(255,119,0,0.3);">
     </div>
 
-    <div class="card workout-day-card" onclick="openWorkoutDetails('personalizado')"
+    <div class="card workout-day-card" onclick="openPersonalizadoSummary()"
       style="border-left-color: var(--neon-orange); cursor:pointer;">
       <div class="workout-info">
-        <div class="workout-title">🔥 Treino Personalizado</div>
-        <div class="workout-sub">Hipertrofia • Balanceado</div>
+        <div class="workout-title">🔥 Resumo Geral</div>
+        <div class="workout-sub" id="personalizadoSub">Total de exercícios na rotina</div>
       </div>
       <span class="badge-count" id="personalizadoCount">0</span>
     </div>
@@ -1017,38 +1022,41 @@
         <div>
           <small style="color:var(--text-muted); font-weight:600; font-size:11px; text-transform:uppercase;">Peso
             Atual</small>
-          <div style="font-size:28px; font-weight:800; color:#fff;">75.5 <span
+          <div style="font-size:28px; font-weight:800; color:#fff;" id="pesoAtualDisplay">75.5 <span
               style="font-size:14px; color:var(--text-muted);">kg</span></div>
         </div>
         <div style="text-align:right;">
           <small
             style="color:var(--text-muted); font-weight:600; font-size:11px; text-transform:uppercase;">Meta</small>
-          <div style="font-size:20px; font-weight:700; color:var(--neon-green);">85.0 kg</div>
+          <div style="font-size:20px; font-weight:700; color:var(--neon-green);" id="pesoMetaDisplay">85.0 kg</div>
         </div>
       </div>
       <div class="chart-container"><canvas id="weightChart"></canvas></div>
     </div>
 
     <div class="stat-grid">
-      <div class="stat-card">
-        <div class="stat-val">22.5</div>
+      <div class="stat-card" onclick="editarDadoCorpo('imc')" style="cursor:pointer;">
+        <div class="stat-val" id="statImc">22.5</div>
         <div class="stat-label">IMC</div>
       </div>
-      <div class="stat-card">
-        <div class="stat-val" style="color:var(--neon-pink);">16.6%</div>
+      <div class="stat-card" onclick="editarDadoCorpo('gordura')" style="cursor:pointer;">
+        <div class="stat-val" style="color:var(--neon-pink);" id="statGordura">16.6%</div>
         <div class="stat-label">Gordura</div>
       </div>
-      <div class="stat-card">
-        <div class="stat-val" style="color:var(--neon-green);">42.8</div>
+      <div class="stat-card" onclick="editarDadoCorpo('musculo')" style="cursor:pointer;">
+        <div class="stat-val" style="color:var(--neon-green);" id="statMusculo">42.8</div>
         <div class="stat-label">Músculo (kg)</div>
       </div>
-      <div class="stat-card">
-        <div class="stat-val" style="color:var(--neon-cyan);">186</div>
-        <div class="stat-label">Dias de treino</div>
+      <div class="stat-card" onclick="editarDadoCorpo('altura')" style="cursor:pointer;">
+        <div class="stat-val" style="color:var(--neon-cyan);" id="statAltura">175</div>
+        <div class="stat-label">Altura (cm)</div>
       </div>
     </div>
 
-    <button class="btn btn-orange" onclick="openModal('modalAddPeso')">📊 Atualizar Peso</button>
+    <div style="display:flex; gap:8px;">
+      <button class="btn btn-orange" style="flex:1;" onclick="openModal('modalAddPeso')">📊 Atualizar Peso</button>
+      <button class="btn btn-outline" style="flex:1;" onclick="openModal('modalCorpoMeta')">🎯 Meta</button>
+    </div>
   </div>
 
   <!-- ===== BOTTOM NAV ===== -->
@@ -1167,6 +1175,10 @@
         <img id="configExImg" src="" class="ex-thumb"
           style="width:100%; height:200px; border-radius:14px; object-fit:contain; background:#11151c; padding:16px; border:1px solid var(--border);">
       </div>
+      <div class="form-group">
+        <label>Adicionar ao Treino</label>
+        <select class="input" id="workoutSelector" style="margin-bottom:12px;"></select>
+      </div>
       <div class="series-config">
         <div class="form-group">
           <label>Nº Séries</label>
@@ -1201,12 +1213,30 @@
     </div>
   </div>
 
+  <!-- ===== MODAL: META DO CORPO ===== -->
+  <div class="modal-overlay" id="modalCorpoMeta">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div>
+          <small>Atualizar</small>
+          <h3>Definir Metas</h3>
+        </div>
+        <button class="modal-close" onclick="closeModal('modalCorpoMeta')">✕</button>
+      </div>
+      <div class="form-group">
+        <label>Meta de Peso (kg)</label>
+        <input type="number" step="0.1" class="input" id="metaPesoInput" placeholder="Ex: 85">
+      </div>
+      <button class="btn btn-orange" onclick="salvarMetaCorpo()">🎯 Salvar Meta</button>
+    </div>
+  </div>
+
   <!-- ===== MODAL: SUCESSO ===== -->
   <div class="modal-overlay modal-sucesso" id="modalSucesso">
     <div class="modal-content">
-      <lottie-player src="assets/anim/anim_gym_wp.json" background="transparent" speed="1" autoplay
-        style="width:100%; height:160px; margin-bottom:8px;">
-      </lottie-player>
+      <div style="width:100%; height:160px; margin-bottom:8px; display:flex; align-items:center; justify-content:center; font-size:80px;">
+        🏆💪🔥
+      </div>
       <h2 style="color:#fff; font-size:22px; margin-bottom:6px;">🏆 Treino Concluído!</h2>
       <p style="color:var(--text-muted); margin-bottom:18px;">Parabéns, você deu mais um passo rumo aos seus objetivos.
       </p>
@@ -1322,6 +1352,21 @@
   </div>
   <script>
     // ============================================================
+    // REGISTRO DO SERVICE WORKER (PWA)
+    // ============================================================
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('sw.js')
+          .then(function (reg) {
+            console.log('GymFit Pro PWA registrado!', reg.scope);
+          })
+          .catch(function (err) {
+            console.error('Erro ao registrar Service Worker:', err);
+          });
+      });
+    }
+
+    // ============================================================
     // CARREGAMENTO DO CATÁLOGO E MAPA DE IMAGENS
     // ============================================================
 
@@ -1376,10 +1421,14 @@
     // IMPORTAÇÃO AUTOMÁTICA DO CATÁLOGO
     // ============================================================
 
+    function capitalize(str) {
+      return str ? str.charAt(0).toUpperCase() + str.slice(1).toLowerCase() : '';
+    }
+
     function importExercisesFromCatalog() {
       exerciseCatalog.forEach(ex => {
-        const musculo = ex.primary ? ex.primary.split(',')[0].trim() : 'Outros';
-        const equip = ex.equipment && ex.equipment.length > 0 ? ex.equipment[0] : 'Não especificado';
+        const musculo = ex.primary ? capitalize(ex.primary.split(',')[0].trim()) : 'Outros';
+        const equip = ex.equipment && ex.equipment.length > 0 ? capitalize(ex.equipment[0]) : 'Não especificado';
         // Evita duplicatas (case insensitive)
         if (!exercises.some(e => e.nome.toLowerCase() === ex.title.toLowerCase())) {
           exercises.push({
@@ -1415,7 +1464,7 @@
     // FUNÇÃO DE CARREGAMENTO DE IMAGEM (PRIORIZA MAPA)
     // ============================================================
 
-    function loadExerciseImage(imgElement, exercise) {
+    function loadExerciseImage(imgElement, exercise, extIndex) {
       // Tenta encontrar o exercício no catálogo pelo título (traduzido)
       const catalogEntry = exerciseCatalog.find(ex => ex.title === exercise.nome);
       if (catalogEntry && catalogEntry.id_num) {
@@ -1487,18 +1536,6 @@
     const ADMIN_PASSWORD = "2109";
 
     let exercises = JSON.parse(localStorage.getItem('gymfit_exercises')) || [];
-    // Se não houver exercícios, usamos uma lista inicial mínima (será substituída pela importação)
-    if (exercises.length === 0) {
-      exercises = [
-        { id: 1, nome: "Supino Reto com Barra", musculo: "Peito", equip: "Barra" },
-        { id: 2, nome: "Remada Curvada com Barra", musculo: "Costas", equip: "Barra" },
-        { id: 3, nome: "Agachamento Livre", musculo: "Pernas", equip: "Barra" },
-        { id: 4, nome: "Desenvolvimento com Halteres", musculo: "Ombros", equip: "Halteres" },
-        { id: 5, nome: "Rosca Direta com Barra", musculo: "Bíceps", equip: "Barra" },
-        { id: 6, nome: "Tríceps na Polia com Corda", musculo: "Tríceps", equip: "Polia" },
-      ];
-      saveExercises();
-    }
 
     let meusTreinos = JSON.parse(localStorage.getItem('gymfit_rotina')) || [
       { id: 1, nome: "PEITO E TRÍCEPS", dia: "Seg, Qui", exercicios: [] },
@@ -1513,6 +1550,43 @@
     let pesoData = JSON.parse(localStorage.getItem('gymfit_peso')) || [73.0, 74.2, 74.8, 75.5];
     let weightChartInstance = null;
     let currentExerciseId = null;
+
+    let corpoData = JSON.parse(localStorage.getItem('gymfit_corpo')) || {
+      imc: 22.5,
+      gordura: 16.6,
+      musculo: 42.8,
+      altura: 175,
+      metaPeso: 85
+    };
+
+    function saveCorpoData() {
+      localStorage.setItem('gymfit_corpo', JSON.stringify(corpoData));
+      atualizarDisplayCorpo();
+    }
+
+    function atualizarDisplayCorpo() {
+      const ultimoPeso = pesoData.length > 0 ? pesoData[pesoData.length - 1] : 0;
+      document.getElementById('pesoAtualDisplay').innerHTML = ultimoPeso + ' <span style="font-size:14px;color:var(--text-muted);">kg</span>';
+      document.getElementById('pesoMetaDisplay').textContent = corpoData.metaPeso + ' kg';
+      document.getElementById('statImc').textContent = corpoData.imc;
+      document.getElementById('statGordura').textContent = corpoData.gordura + '%';
+      document.getElementById('statMusculo').textContent = corpoData.musculo;
+      document.getElementById('statAltura').textContent = corpoData.altura;
+    }
+
+    function editarDadoCorpo(campo) {
+      const labels = { imc: 'IMC', gordura: 'Gordura (%)', musculo: 'Músculo (kg)', altura: 'Altura (cm)' };
+      const valores = { imc: corpoData.imc, gordura: corpoData.gordura, musculo: corpoData.musculo, altura: corpoData.altura };
+      showPrompt('Editar ' + labels[campo], 'Digite o novo valor:', (val) => {
+        if (val !== null && val !== '') {
+          const num = parseFloat(val);
+          if (!isNaN(num) && num > 0) {
+            corpoData[campo] = num;
+            saveCorpoData();
+          }
+        }
+      }, String(valores[campo]));
+    }
 
     function saveExercises() {
       localStorage.setItem('gymfit_exercises', JSON.stringify(exercises));
@@ -1683,6 +1757,7 @@
       });
       const totalEx = meusTreinos.reduce((acc, t) => acc + (t.exercicios ? t.exercicios.length : 0), 0);
       document.getElementById('personalizadoCount').textContent = totalEx;
+      document.getElementById('personalizadoSub').textContent = totalEx > 0 ? `${totalEx} exercícios na rotina` : 'Nenhum exercício ainda';
     }
 
     function toggleDay(el) {
@@ -1749,8 +1824,9 @@
       playSound('click');
     }
 
-    function deleteTreino(id) {
-      if (!showConfirm('Tem certeza que deseja excluir este treino?')) return;
+    async function deleteTreino(id) {
+      const ok = await showConfirm('Excluir Treino', 'Tem certeza que deseja excluir este treino?');
+      if (!ok) return;
       meusTreinos = meusTreinos.filter(t => t.id !== id);
       saveTreinos();
       renderTreinos();
@@ -1790,6 +1866,45 @@
       openModal('modalWorkoutDetails');
     }
 
+    function openPersonalizadoSummary() {
+      const totalEx = meusTreinos.reduce((acc, t) => acc + (t.exercicios ? t.exercicios.length : 0), 0);
+      const totalVol = meusTreinos.reduce((acc, t) => {
+        return acc + (t.exercicios ? t.exercicios.reduce((s, ex) => {
+          const reps = String(ex.reps || '0').split(',').map(Number).reduce((a, b) => a + b, 0);
+          const carga = String(ex.carga || '0').split(',').map(Number).reduce((a, b) => a + b, 0);
+          return s + (reps * carga);
+        }, 0) : 0);
+      }, 0);
+
+      document.getElementById('workoutDetailTitle').textContent = '🔥 Resumo Geral';
+      let body = document.getElementById('workoutDetailBody');
+
+      if (meusTreinos.length === 0) {
+        body.innerHTML = `<div class="empty-state"><p>Nenhum treino cadastrado.</p></div>`;
+      } else {
+        let html = `<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px;">
+          <div class="stat-card"><div class="stat-val">${meusTreinos.length}</div><div class="stat-label">Treinos</div></div>
+          <div class="stat-card"><div class="stat-val">${totalEx}</div><div class="stat-label">Exercícios</div></div>
+          <div class="stat-card"><div class="stat-val" style="color:var(--neon-green);">${totalVol.toLocaleString('pt-BR')}</div><div class="stat-label">Volume (kg)</div></div>
+          <div class="stat-card"><div class="stat-val" style="color:var(--neon-pink);">${meusTreinos.filter(t => t.exercicios && t.exercicios.some(e => e.concluido)).length}</div><div class="stat-label">Completos</div></div>
+        </div>`;
+
+        meusTreinos.forEach(t => {
+          const count = t.exercicios ? t.exercicios.length : 0;
+          html += `<div class="ex-list-item" style="cursor:default; padding:8px 12px; margin-bottom:4px;">
+            <div class="ex-info">
+              <strong style="font-size:13px;">${t.nome}</strong>
+              <span style="font-size:11px;">${t.dia || ''} • ${count} exercícios</span>
+            </div>
+            <span class="badge-count">${count}</span>
+          </div>`;
+        });
+
+        body.innerHTML = html;
+      }
+      openModal('modalWorkoutDetails');
+    }
+
     function removeExerciseFromWorkout(workoutId, index) {
       const treino = meusTreinos.find(t => t.id === workoutId);
       if (!treino) return;
@@ -1823,7 +1938,7 @@
         const img = document.createElement('img');
         img.className = 'ex-thumb';
         img.alt = ex.nome;
-        loadExerciseImage(img, ex, 0);
+        loadExerciseImage(img, ex);
 
         const info = document.createElement('div');
         info.className = 'ex-info';
@@ -1863,7 +1978,7 @@
         const img = document.createElement('img');
         img.className = 'ex-thumb';
         img.alt = ex.nome;
-        loadExerciseImage(img, ex, 0);
+        loadExerciseImage(img, ex);
 
         const info = document.createElement('div');
         info.className = 'ex-info';
@@ -1915,7 +2030,7 @@
       exercises.forEach(ex => {
         const thumb = document.createElement('img');
         thumb.style.cssText = "width:40px; height:40px; border-radius:6px; object-fit:cover; background:#11151c;";
-        loadExerciseImage(thumb, ex, 0);
+        loadExerciseImage(thumb, ex);
 
         const item = document.createElement('div');
         item.className = "ex-list-item";
@@ -1991,8 +2106,9 @@
       playSound('click');
     }
 
-    function deleteExercise(id) {
-      if (!showConfirm('Tem certeza que deseja excluir este exercício?')) return;
+    async function deleteExercise(id) {
+      const ok = await showConfirm('Excluir Exercício', 'Tem certeza que deseja excluir este exercício?');
+      if (!ok) return;
       exercises = exercises.filter(e => e.id !== id);
       saveExercises();
       renderExercicios();
@@ -2004,14 +2120,30 @@
     // CONFIGURAR EXERCÍCIO
     // ============================================================
 
+    function populateWorkoutSelector() {
+      const sel = document.getElementById('workoutSelector');
+      sel.innerHTML = '';
+      if (!meusTreinos || meusTreinos.length === 0) {
+        sel.innerHTML = '<option value="">Nenhum treino disponível</option>';
+        return;
+      }
+      meusTreinos.forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = t.id;
+        opt.textContent = t.nome + (t.dia ? ' (' + t.dia + ')' : '');
+        sel.appendChild(opt);
+      });
+    }
+
     function openConfigEx(id) {
       const ex = exercises.find(e => e.id === id);
       if (!ex) return;
       currentExerciseId = id;
       document.getElementById('configExTitle').textContent = ex.nome;
       const imgEl = document.getElementById('configExImg');
-      loadExerciseImage(imgEl, ex, 0);
+      loadExerciseImage(imgEl, ex);
 
+      populateWorkoutSelector();
       document.getElementById('numSeries').value = 3;
       document.getElementById('restTime').value = 60;
       generateSeries();
@@ -2055,6 +2187,16 @@
     function finishExercise() {
       const ex = exercises.find(e => e.id === currentExerciseId);
       if (!ex) return;
+
+      const sel = document.getElementById('workoutSelector');
+      const targetId = parseInt(sel.value);
+      let targetWorkout = meusTreinos.find(t => t.id === targetId);
+
+      if (!targetWorkout) {
+        showNotification('Selecione um treino para adicionar o exercício.');
+        return;
+      }
+
       const rows = document.querySelectorAll('#seriesContainer .set-row');
       const seriesData = [];
       rows.forEach(row => {
@@ -2067,12 +2209,6 @@
       const numSeries = rows.length;
       const restTime = parseInt(document.getElementById('restTime').value) || 60;
 
-      let targetWorkout = meusTreinos.find(t => t.nome === 'PEITO E TRÍCEPS');
-      if (!targetWorkout) targetWorkout = meusTreinos[0];
-      if (!targetWorkout) {
-        targetWorkout = { id: Date.now(), nome: 'TREINO PERSONALIZADO', dia: 'Seg, Qua, Sex', exercicios: [] };
-        meusTreinos.push(targetWorkout);
-      }
       targetWorkout.exercicios.push({
         nome: ex.nome,
         musculo: ex.musculo,
@@ -2105,7 +2241,19 @@
       playSound('click');
     }
 
+    function salvarMetaCorpo() {
+      const input = document.getElementById('metaPesoInput');
+      const val = parseFloat(input.value);
+      if (isNaN(val) || val <= 0) { showNotification('Digite um peso válido.'); return; }
+      corpoData.metaPeso = val;
+      saveCorpoData();
+      input.value = '';
+      closeModal('modalCorpoMeta');
+      playSound('click');
+    }
+
     function updateChart() {
+      atualizarDisplayCorpo();
       const ctx = document.getElementById('weightChart').getContext('2d');
       if (weightChartInstance) weightChartInstance.destroy();
       const labels = pesoData.map((_, i) => `Sem ${i + 1}`);
@@ -2143,57 +2291,49 @@
 
     let notifCallback = null; // para confirm/prompt
 
-    function showNotification(titulo, mensagem, tipo = 'info') {
+    function showNotification(titulo, mensagem) {
+      if (mensagem === undefined) {
+        mensagem = titulo;
+        titulo = '💪 GymFit Pro';
+      }
       const modal = document.getElementById('modalNotificacao');
       document.getElementById('notifTitulo').textContent = titulo;
       document.getElementById('notifMensagem').textContent = mensagem;
 
-      // Esconde todos os botões, mostra apenas o OK
       const botoes = document.getElementById('notifBotoes');
       botoes.innerHTML = `<button class="btn btn-orange" id="notifOk" style="flex:1; min-width:100px;">OK</button>`;
 
-      // Fecha ao clicar em OK
       document.getElementById('notifOk').onclick = function () {
         closeModal('modalNotificacao');
-        if (notifCallback) {
-          notifCallback(true);
-          notifCallback = null;
-        }
       };
 
       openModal('modalNotificacao');
     }
 
-    function showConfirm(titulo, mensagem, callback) {
-      const modal = document.getElementById('modalNotificacao');
-      document.getElementById('notifTitulo').textContent = titulo;
-      document.getElementById('notifMensagem').textContent = mensagem;
+    function showConfirm(titulo, mensagem) {
+      return new Promise((resolve) => {
+        const modal = document.getElementById('modalNotificacao');
+        document.getElementById('notifTitulo').textContent = titulo;
+        document.getElementById('notifMensagem').textContent = mensagem || '';
 
-      const botoes = document.getElementById('notifBotoes');
-      botoes.innerHTML = `
-    <button class="btn btn-outline" id="notifCancelar" style="flex:1; min-width:80px;">Cancelar</button>
-    <button class="btn btn-orange" id="notifConfirmar" style="flex:1; min-width:80px;">Confirmar</button>
-  `;
+        const botoes = document.getElementById('notifBotoes');
+        botoes.innerHTML = `
+          <button class="btn btn-outline" id="notifCancelar" style="flex:1; min-width:80px;">Cancelar</button>
+          <button class="btn btn-orange" id="notifConfirmar" style="flex:1; min-width:80px;">Confirmar</button>
+        `;
 
-      notifCallback = callback || function () { };
+        document.getElementById('notifCancelar').onclick = function () {
+          closeModal('modalNotificacao');
+          resolve(false);
+        };
 
-      document.getElementById('notifCancelar').onclick = function () {
-        closeModal('modalNotificacao');
-        if (notifCallback) {
-          notifCallback(false);
-          notifCallback = null;
-        }
-      };
+        document.getElementById('notifConfirmar').onclick = function () {
+          closeModal('modalNotificacao');
+          resolve(true);
+        };
 
-      document.getElementById('notifConfirmar').onclick = function () {
-        closeModal('modalNotificacao');
-        if (notifCallback) {
-          notifCallback(true);
-          notifCallback = null;
-        }
-      };
-
-      openModal('modalNotificacao');
+        openModal('modalNotificacao');
+      });
     }
 
     function showPrompt(titulo, mensagem, callback, placeholder = '') {
@@ -2273,6 +2413,7 @@
       // Renderiza tudo
       renderTreinos();
       renderExercicios();
+      atualizarDisplayCorpo();
       updateChart();
       currentFilter = 'Todos';
       renderFilterTabs();
@@ -2314,6 +2455,10 @@
     window.updateFileHint = updateFileHint;
     window.autoFillFromCatalog = autoFillFromCatalog;
     window.loadExerciseImage = loadExerciseImage;
+    window.openPersonalizadoSummary = openPersonalizadoSummary;
+    window.salvarMetaCorpo = salvarMetaCorpo;
+    window.editarDadoCorpo = editarDadoCorpo;
+    window.populateWorkoutSelector = populateWorkoutSelector;
   </script>
 </body>
 
