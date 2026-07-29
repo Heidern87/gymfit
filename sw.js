@@ -1,17 +1,18 @@
-const CACHE_NAME = 'gymfit-pro-v2';
+const CACHE_NAME = 'gymfit-pro-v3';
+const BASE = '/gymfit';
 const LOCAL_URLS = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-  '/icon-192x192.png',
-  '/icon-512x512.png'
+  BASE + '/',
+  BASE + '/index.html',
+  BASE + '/manifest.json',
+  BASE + '/icon-192x192.png',
+  BASE + '/icon-512x512.png'
 ];
 
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => {
-      return cache.addAll(LOCAL_URLS).then(() => self.skipWaiting());
-    }).catch(() => self.skipWaiting())
+      return cache.addAll(LOCAL_URLS);
+    }).then(() => self.skipWaiting()).catch(() => self.skipWaiting())
   );
 });
 
@@ -27,33 +28,27 @@ self.addEventListener('fetch', event => {
   const { request } = event;
   const url = new URL(request.url);
 
-  if (url.origin !== location.origin) {
-    event.respondWith(
-      caches.match(request).then(cached => cached || fetch(request).then(response => {
-        const clone = response.clone();
-        caches.open(CACHE_NAME).then(cache => cache.put(request, clone));
-        return response;
-      }).catch(() => new Response('', { status: 408 })))
-    );
-    return;
-  }
-
   if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request).then(response => {
         const clone = response.clone();
         caches.open(CACHE_NAME).then(cache => cache.put(request, clone));
         return response;
-      }).catch(() => caches.match('/index.html'))
+      }).catch(() => caches.match(BASE + '/index.html'))
     );
     return;
   }
 
-  event.respondWith(
-    caches.match(request).then(cached => cached || fetch(request).then(response => {
-      const clone = response.clone();
-      caches.open(CACHE_NAME).then(cache => cache.put(request, clone));
-      return response;
-    }))
-  );
+  if (url.origin === location.origin) {
+    event.respondWith(
+      caches.match(request).then(cached => {
+        if (cached) return cached;
+        return fetch(request).then(response => {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(request, clone));
+          return response;
+        });
+      }).catch(() => caches.match(BASE + '/index.html'))
+    );
+  }
 });
