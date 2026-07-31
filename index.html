@@ -588,6 +588,44 @@
       opacity: 0.4;
     }
 
+    .series-stepper {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .series-stepper .stepper-input {
+      flex: 1;
+      min-width: 0;
+      text-align: center;
+      margin-bottom: 0;
+      font-size: 16px;
+      font-weight: 800;
+    }
+
+    .stepper-btn {
+      width: 44px;
+      height: 44px;
+      flex-shrink: 0;
+      border-radius: 12px;
+      background: var(--card-2);
+      border: 1px solid var(--border-2);
+      color: #fff;
+      font-size: 20px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: 0.2s;
+      line-height: 1;
+    }
+
+    .stepper-btn:active {
+      transform: scale(0.9);
+      background: rgba(255, 107, 26, 0.22);
+      border-color: var(--accent);
+    }
+
     /* ============ CHIPS / TABS ============ */
     .tabs-h {
       display: flex;
@@ -1828,8 +1866,12 @@
       <div class="btn-row" style="margin-bottom:14px;">
         <div style="flex:1;">
           <label class="field">Séries</label>
-          <input type="number" class="input" id="numSeries" placeholder="Ex: 4" min="1" max="12"
-            oninput="generateSeries()" onchange="clampNumSeries()" style="margin-bottom:0;">
+          <div class="series-stepper">
+            <button type="button" class="stepper-btn" onclick="stepSeries(-1)">−</button>
+            <input type="text" class="input stepper-input" id="numSeries" placeholder="0"
+              inputmode="numeric" pattern="[0-9]*" oninput="generateSeries()" onblur="clampNumSeries()">
+            <button type="button" class="stepper-btn" onclick="stepSeries(1)">+</button>
+          </div>
         </div>
         <div style="flex:1;">
           <label class="field">Descanso (s)</label>
@@ -3231,6 +3273,18 @@
       seriesGenTimer = setTimeout(renderSeries, 400);
     }
 
+    function stepSeries(delta) {
+      const input = document.getElementById('numSeries');
+      let num = parseInt(input.value, 10);
+      if (isNaN(num)) num = 0;
+      num += delta;
+      if (num < 1) num = 1;
+      if (num > 12) num = 12;
+      input.value = num;
+      renderSeries();
+      playSound('click');
+    }
+
     function clampNumSeries() {
       const input = document.getElementById('numSeries');
       let num = parseInt(input.value, 10);
@@ -3653,6 +3707,8 @@
     window.filterExercicios = filterExercicios;
     window.openConfigEx = openConfigEx;
     window.generateSeries = generateSeries;
+    window.clampNumSeries = clampNumSeries;
+    window.stepSeries = stepSeries;
     window.toggleSet = toggleSet;
     window.finishExercise = finishExercise;
     window.savePeso = savePeso;
