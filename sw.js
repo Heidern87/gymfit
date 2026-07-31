@@ -1,4 +1,4 @@
-const CACHE_NAME = 'gymfit-pro-v5';
+const CACHE_NAME = 'gymfit-pro-v6';
 const BASE = '/gymfit';
 const LOCAL_URLS = [
   BASE + '/',
