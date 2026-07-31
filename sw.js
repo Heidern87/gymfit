@@ -1,11 +1,16 @@
-const CACHE_NAME = 'gymfit-pro-v3';
+const CACHE_NAME = 'gymfit-pro-v5';
 const BASE = '/gymfit';
 const LOCAL_URLS = [
   BASE + '/',
   BASE + '/index.html',
   BASE + '/manifest.json',
   BASE + '/icon-192x192.png',
-  BASE + '/icon-512x512.png'
+  BASE + '/icon-512x512.png',
+  BASE + '/assets/vendor/chart.umd.min.js',
+  BASE + '/assets/vendor/fonts/inter-latin-400.woff2',
+  BASE + '/assets/vendor/fonts/inter-latin-600.woff2',
+  BASE + '/assets/vendor/fonts/inter-latin-700.woff2',
+  BASE + '/assets/vendor/fonts/inter-latin-800.woff2'
 ];
 
 self.addEventListener('install', event => {
