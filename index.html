@@ -1828,8 +1828,8 @@
       <div class="btn-row" style="margin-bottom:14px;">
         <div style="flex:1;">
           <label class="field">Séries</label>
-          <input type="number" class="input" id="numSeries" value="3" min="1" max="12" oninput="generateSeries()"
-            style="margin-bottom:0;">
+          <input type="number" class="input" id="numSeries" placeholder="Ex: 4" min="1" max="12"
+            oninput="generateSeries()" onchange="clampNumSeries()" style="margin-bottom:0;">
         </div>
         <div style="flex:1;">
           <label class="field">Descanso (s)</label>
@@ -3218,18 +3218,39 @@
       document.getElementById('configExTitle').textContent = ex.nome;
       setExerciseImage(document.getElementById('configExImg'), ex);
       populateWorkoutSelector();
-      document.getElementById('numSeries').value = 3;
+      document.getElementById('numSeries').value = '';
       document.getElementById('restTime').value = 60;
       generateSeries();
       openModal('modalConfigEx');
     }
 
+    let seriesGenTimer = null;
+
     function generateSeries() {
-      let num = parseInt(document.getElementById('numSeries').value) || 3;
-      if (num < 1) num = 1;
+      clearTimeout(seriesGenTimer);
+      seriesGenTimer = setTimeout(renderSeries, 400);
+    }
+
+    function clampNumSeries() {
+      const input = document.getElementById('numSeries');
+      let num = parseInt(input.value, 10);
+      if (isNaN(num) || num < 1) num = 1;
       if (num > 12) num = 12;
-      document.getElementById('numSeries').value = num;
+      input.value = num;
+      renderSeries();
+    }
+
+    function renderSeries() {
+      const input = document.getElementById('numSeries');
+      const raw = (input.value || '').trim();
       const container = document.getElementById('seriesContainer');
+      if (raw === '') {
+        container.innerHTML = '';
+        return;
+      }
+      let num = parseInt(raw, 10);
+      if (isNaN(num) || num < 1) num = 1;
+      if (num > 12) num = 12;
       container.innerHTML = '';
       for (let i = 1; i <= num; i++) {
         container.innerHTML += `
@@ -3269,6 +3290,10 @@
       }
 
       const rows = document.querySelectorAll('#seriesContainer .set-row');
+      if (rows.length === 0) {
+        showNotification('Informe a quantidade de séries.', 'Digite o número de séries antes de salvar.');
+        return;
+      }
       const seriesData = [];
       rows.forEach(function (row) {
         const inputs = row.querySelectorAll('.set-input');
