@@ -2981,6 +2981,7 @@
       store('gymfit_session', activeSession);
       document.getElementById('activeTreinoNome').textContent = treino.nome;
       renderActiveExercise();
+      playSound('ding');
       openActiveOverlay();
     }
 
@@ -3080,7 +3081,7 @@
       const doneInEx = sets.filter(function (s, i) { return activeSession.setsDone[activeSession.idx + ':' + i]; }).length;
 
       if (doneInEx >= sets.length) {
-        playSound('ding');
+        playSound('click');
         renderActiveExercise();
       } else {
         const rest = ex.rest ? parseInt(ex.rest) : 60;
@@ -3401,7 +3402,7 @@
         const checks = document.querySelectorAll('#seriesContainer .set-check');
         const allDone = Array.from(checks).every(function (c) { return c.classList.contains('done'); });
         if (allDone) {
-          playSound('ding');
+          playSound('click');
         } else {
           const rest = parseInt(document.getElementById('restTime').value) || 60;
           startRestTimer(rest);
@@ -3424,8 +3425,7 @@
       if (rows.length === 0) {
         showNotification('Informe a quantidade de séries.', 'Digite o número de séries antes de salvar.');
         return;
-      }
-      const seriesData = [];
+      }      const seriesData = [];
       rows.forEach(function (row) {
         const inputs = row.querySelectorAll('.set-input');
         seriesData.push({
