@@ -1861,7 +1861,7 @@
       </div>
       <div>
         <label class="field">Adicionar ao treino</label>
-        <select class="input" id="workoutSelector"></select>
+        <select class="input" id="workoutSelector" onchange="workoutSelectorTarget=null"></select>
       </div>
       <div class="btn-row" style="margin-bottom:14px;">
         <div style="flex:1;">
@@ -2898,6 +2898,7 @@
     function openWorkoutDetails(id) {
       const treino = meusTreinos.find(function (t) { return t.id === id; });
       if (!treino) return;
+      workoutSelectorTarget = id;
       document.getElementById('workoutDetailTitle').textContent = treino.nome;
       const body = document.getElementById('workoutDetailBody');
       if (!treino.exercicios || treino.exercicios.length === 0) {
@@ -3309,6 +3310,7 @@
     // CONFIGURAR EXERCÍCIO (ADICIONAR AO TREINO)
     // ============================================================
     let currentExerciseId = null;
+    let workoutSelectorTarget = null;
 
     function populateWorkoutSelector() {
       const sel = document.getElementById('workoutSelector');
@@ -3323,6 +3325,9 @@
         opt.textContent = t.nome + (t.dia ? ' (' + t.dia + ')' : '');
         sel.appendChild(opt);
       });
+      if (workoutSelectorTarget && meusTreinos.some(function (t) { return t.id === workoutSelectorTarget; })) {
+        sel.value = workoutSelectorTarget;
+      }
     }
 
     function openConfigEx(id) {
