@@ -1,4 +1,4 @@
-const CACHE_NAME = 'gymfit-pro-v6';
+const CACHE_NAME = 'gymfit-pro-v7';
 const BASE = '/gymfit';
 const LOCAL_URLS = [
   BASE + '/',
@@ -10,7 +10,8 @@ const LOCAL_URLS = [
   BASE + '/assets/vendor/fonts/inter-latin-400.woff2',
   BASE + '/assets/vendor/fonts/inter-latin-600.woff2',
   BASE + '/assets/vendor/fonts/inter-latin-700.woff2',
-  BASE + '/assets/vendor/fonts/inter-latin-800.woff2'
+  BASE + '/assets/vendor/fonts/inter-latin-800.woff2',
+  BASE + '/data/gymfit_exercises.json'
 ];
 
 self.addEventListener('install', event => {
@@ -45,6 +46,17 @@ self.addEventListener('fetch', event => {
   }
 
   if (url.origin === location.origin) {
+    if (url.pathname.indexOf('/data/gymfit_exercises.json') !== -1) {
+      event.respondWith(
+        fetch(request).then(response => {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(request, clone));
+          return response;
+        }).catch(() => caches.match(request).then(c => c || Response.error()))
+      );
+      return;
+    }
+
     event.respondWith(
       caches.match(request).then(cached => {
         if (cached) return cached;

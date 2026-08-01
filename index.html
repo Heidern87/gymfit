@@ -1972,9 +1972,7 @@
 
         <div>
           <label class="field">Nome do exercício</label>
-          <input type="text" class="input" id="adminNome" placeholder="Ex: Supino reto" list="exercicioSugestoes"
-            oninput="autoFillFromCatalog(this.value)">
-          <datalist id="exercicioSugestoes"></datalist>
+          <input type="text" class="input" id="adminNome" placeholder="Ex: Supino reto">
         </div>
 
         <div class="btn-row" style="gap:10px;">
@@ -2010,6 +2008,24 @@
         <span class="tag accent" id="adminCount">0</span>
       </div>
       <div id="adminExercisesList"></div>
+
+      <div class="section-title">Publicação</div>
+      <div class="card">
+        <p style="font-size:13px; color:var(--muted); margin-bottom:14px; line-height:1.5;">
+          Seus exercícios e imagens ficam salvos em <b style="color:#fff;">data/gymfit_exercises.json</b>
+          no repositório, junto com os arquivos do app. Quando você cadastrar ou alterar exercícios,
+          baixe o arquivo abaixo e envie para o repositório — assim <b style="color:#fff;">todos os usuários</b>
+          recebem, e nada se perde ao limpar cache ou reinstalar o app.
+        </p>
+        <p id="pubStatus" style="font-size:12px; color:var(--green); margin-bottom:14px; line-height:1.5;"></p>
+        <button class="btn btn-primary" style="width:100%;" onclick="exportExercisesFile()">⬇️ Baixar arquivo de exercícios</button>
+        <div class="btn-row" style="margin-top:10px;">
+          <button class="btn btn-outline" style="flex:1;" onclick="confirmPublished()">✅ Já enviei o arquivo</button>
+          <button class="btn btn-outline" style="flex:1;" onclick="document.getElementById('pubImportInput').click()">📂 Importar arquivo</button>
+          <input type="file" id="pubImportInput" accept=".json,application/json" style="display:none;"
+            onchange="onImportExercisesFile(this)">
+        </div>
+      </div>
 
       <div class="section-title">Configurações</div>
       <div class="card">
@@ -2121,10 +2137,6 @@
 
     function uid() { return Date.now() + Math.floor(Math.random() * 1000); }
 
-    function capitalize(s) {
-      return s ? String(s).charAt(0).toUpperCase() + String(s).slice(1).toLowerCase() : '';
-    }
-
     // ============================================================
     // DADOS
     // ============================================================
@@ -2139,9 +2151,6 @@
     let history = load('gymfit_history', []);
     let profile = load('gymfit_profile', { nome: 'Atleta', metaSemana: 4 });
 
-    let exerciseCatalog = [];
-    let exerciseImageMap = {};
-    let catalogTitles = [];
     let currentFilter = 'Todos';
 
     // ============================================================
@@ -2200,77 +2209,154 @@
     }
 
     // ============================================================
-    // CATÁLOGO DE EXERCÍCIOS
+    // EXERCÍCIOS COMPARTILHADOS (data/gymfit_exercises.json no repositório)
     // ============================================================
-    async function loadExerciseMap() {
-      try {
-        const response = await fetch('assets/exercicios/exercises.json');
-        if (!response.ok) throw new Error('Arquivo não encontrado');
-        const data = await response.json();
-        exerciseCatalog = data;
-        catalogTitles = [];
-        data.forEach(function (ex) {
-          if (ex.title && ex.id_num) {
-            const fileName = (ex.img && ex.img[0]) ? ex.img[0].split('/').pop() : '';
-            exerciseImageMap[ex.title] = 'src/exercises/' + ex.id_num + '/' + fileName;
-            catalogTitles.push(ex.title);
-          }
-        });
-        catalogTitles.sort();
-        populateSuggestions();
-        if (exercises.length === 0 && catalogTitles.length > 0) {
-          importExercisesFromCatalog();
+    const SHARED_DATA_PATH = 'data/gymfit_exercises.json';
+
+    function isDirty() { return load('gymfit_exercises_dirty', false) === true; }
+
+    function markDirty() { store('gymfit_exercises_dirty', true); }
+
+    function clearDirty() { store('gymfit_exercises_dirty', false); }
+
+    async function adoptInlineImages(list) {
+      if (!Array.isArray(list)) return list;
+      for (let i = 0; i < list.length; i++) {
+        const ex = list[i];
+        if (ex && ex.image && ex.image.indexOf('data:') === 0) {
+          await setCustomImage(ex.id, ex.image);
+          delete ex.image;
         }
-      } catch (error) {
-        console.warn('Erro ao carregar exercises.json:', error);
-        exerciseCatalog = [];
+      }
+      return list;
+    }
+
+    function loadSharedExercises() {
+      return (async function () {
+        let server = null;
+        try {
+          const resp = await fetch(SHARED_DATA_PATH + '?v=' + Date.now(), { cache: 'no-store' });
+          if (resp.ok) {
+            const data = await resp.json();
+            if (Array.isArray(data)) server = data;
+          }
+        } catch (e) {
+          console.warn('Falha ao buscar exercícios compartilhados; usando cache local.');
+        }
+
+        if (isDirty()) {
+          exercises = load('gymfit_exercises', []);
+          return;
+        }
+        if (server) {
+          exercises = await adoptInlineImages(server);
+          store('gymfit_exercises', exercises);
+        } else {
+          exercises = load('gymfit_exercises', []);
+        }
+      })();
+    }
+
+    // ============================================================
+    // PUBLICAÇÃO — EXPORTAR/IMPORTAR data/gymfit_exercises.json
+    // ============================================================
+    function prepareImageForExport(dataUrl) {
+      return new Promise(function (resolve) {
+        if (!dataUrl || typeof Image === 'undefined') { resolve(dataUrl); return; }
+        if (dataUrl.indexOf('data:image/gif') === 0) { resolve(dataUrl); return; }
+        const img = new Image();
+        img.onload = function () {
+          try {
+            const MAX = 640;
+            let w = img.width, h = img.height;
+            if (!w || !h) { resolve(dataUrl); return; }
+            if (w <= MAX && h <= MAX) { resolve(dataUrl); return; }
+            if (w >= h) { h = Math.round(h * MAX / w); w = MAX; }
+            else { w = Math.round(w * MAX / h); h = MAX; }
+            const canvas = document.createElement('canvas');
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(0, 0, w, h);
+            ctx.drawImage(img, 0, 0, w, h);
+            resolve(canvas.toDataURL('image/jpeg', 0.82));
+          } catch (e) { resolve(dataUrl); }
+        };
+        img.onerror = function () { resolve(dataUrl); };
+        img.src = dataUrl;
+      });
+    }
+
+    async function buildExportData() {
+      const out = [];
+      for (let i = 0; i < exercises.length; i++) {
+        const ex = exercises[i];
+        const copy = Object.assign({}, ex);
+        delete copy.image;
+        const local = await getCustomImage(ex.id);
+        if (local) {
+          copy.image = await prepareImageForExport(local);
+        } else if (ex.image) {
+          copy.image = ex.image;
+        }
+        out.push(copy);
+      }
+      return out;
+    }
+
+    async function exportExercisesFile() {
+      const data = await buildExportData();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'gymfit_exercises.json';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+      showNotification('📄 Arquivo baixado!',
+        'Envie gymfit_exercises.json para a pasta data/ do repositório (substitua o atual). Depois de enviar, toque em "Já enviei o arquivo".');
+    }
+
+    function confirmPublished() {
+      clearDirty();
+      refreshPubStatus();
+      showNotification('✅ Publicado!', 'Seus exercícios estão no repositório. Todos os usuários vão receber na próxima atualização.');
+    }
+
+    async function onImportExercisesFile(input) {
+      const file = input.files && input.files[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        const data = JSON.parse(text);
+        if (!Array.isArray(data)) throw new Error('formato inválido');
+        exercises = await adoptInlineImages(data);
+        saveExercises();
+        renderExercicios();
+        renderAdminList();
+        refreshPubStatus();
+        playSound('click');
+        showNotification('✅ Importado!', data.length + ' exercício(s) carregados do arquivo.');
+      } catch (e) {
+        showNotification('❌ Arquivo inválido', 'Não foi possível ler o arquivo: ' + e.message);
+      } finally {
+        input.value = '';
       }
     }
 
-    function populateSuggestions() {
-      const datalist = document.getElementById('exercicioSugestoes');
-      datalist.innerHTML = '';
-      catalogTitles.forEach(function (title) {
-        const option = document.createElement('option');
-        option.value = title;
-        datalist.appendChild(option);
-      });
-    }
-
-    function importExercisesFromCatalog() {
-      exerciseCatalog.forEach(function (ex) {
-        const musculo = ex.primary ? capitalize(ex.primary.split(',')[0].trim()) : 'Outros';
-        const equip = ex.equipment && ex.equipment.length > 0 ? capitalize(ex.equipment[0]) : 'Não especificado';
-        if (!exercises.some(function (e) { return e.nome.toLowerCase() === ex.title.toLowerCase(); })) {
-          exercises.push({
-            id: uid(),
-            nome: ex.title,
-            musculo: musculo,
-            equip: equip,
-            id_num: ex.id_num || null
-          });
-        }
-      });
-      saveExercises();
-      renderExercicios();
-      renderAdminList();
-      console.log('Exercícios importados do catálogo:', exercises.length);
-    }
-
-    function findCatalog(title) {
-      if (!title) return null;
-      return exerciseCatalog.find(function (ex) {
-        return ex.title === title || ex.title.toLowerCase() === String(title).toLowerCase();
-      }) || null;
-    }
-
-    function autoFillFromCatalog(value) {
-      const found = findCatalog(value);
-      if (found) {
-        document.getElementById('adminMusculo').value =
-          found.primary ? found.primary.split(',')[0].trim() : '';
-        document.getElementById('adminEquip').value =
-          found.equipment && found.equipment.length > 0 ? found.equipment[0] : '';
+    function refreshPubStatus() {
+      const st = document.getElementById('pubStatus');
+      if (!st) return;
+      const count = exercises ? exercises.length : 0;
+      if (isDirty()) {
+        st.innerHTML = '⚠️ Você tem <b style="color:#fff;">' + count + ' exercício(s)</b> com alterações ainda <b style="color:#fff;">não publicadas</b> no repositório.<br>Baixe o arquivo abaixo e envie para a pasta <b style="color:#fff;">data/</b> do repositório.';
+        st.style.color = 'var(--accent)';
+      } else {
+        st.textContent = '✅ ' + count + ' exercício(s) publicado(s). A fonte oficial é data/gymfit_exercises.json.';
+        st.style.color = 'var(--green)';
       }
     }
 
@@ -2292,22 +2378,6 @@
         "<text x='50' y='59' font-family='Inter,sans-serif' font-size='30' font-weight='800' fill='" + c + "' text-anchor='middle'>" + letter + "</text></svg>");
     }
 
-    const NO_IMAGE_IDS = new Set(['0003','0006','0007','0010','0011','0012','0040','0047','0073','0084','0088','0089','0097','0167','0200','0230','0271','0283','0298','0300','0301','0302','0303']);
-
-    function trySequence(img, urls, fallbackFn, ex) {
-      if (!urls.length) {
-        img.classList.add('svg-thumb');
-        img.src = fallbackFn();
-        return;
-      }
-      img.onerror = function () {
-        this.onerror = null;
-        trySequence(this, urls.slice(1), fallbackFn, ex);
-      };
-      img.classList.remove('svg-thumb');
-      img.src = urls[0];
-    }
-
     async function setExerciseImage(img, ex) {
       if (!img) return;
       img.onerror = null;
@@ -2317,12 +2387,14 @@
         img.src = custom;
         return;
       }
-      const cat = findCatalog(ex.nome);
-      if (cat && cat.id_num && !NO_IMAGE_IDS.has(String(cat.id_num).padStart(4, '0'))) {
-        trySequence(img, [
-          'assets/exercicios/src/exercises/' + cat.id_num + '/' + cat.id_num + '-tension.png',
-          'assets/exercicios/src/exercises/' + cat.id_num + '/' + cat.id_num + '-relaxation.png'
-        ], function () { return svgFallback(ex.nome, ex.musculo); }, ex);
+      if (ex && ex.image) {
+        img.onerror = function () {
+          this.onerror = null;
+          this.classList.add('svg-thumb');
+          this.src = svgFallback(ex.nome, ex.musculo);
+        };
+        img.classList.remove('svg-thumb');
+        img.src = ex.image;
         return;
       }
       img.classList.add('svg-thumb');
@@ -2393,7 +2465,7 @@
       if (el) {
         el.classList.add('active');
         document.body.style.overflow = 'hidden';
-        if (id === 'modalAdmin') { renderAdminList(); loadProfileForm(); }
+        if (id === 'modalAdmin') { renderAdminList(); loadProfileForm(); refreshPubStatus(); }
         if (id === 'modalAddTreino') resetDayPicker();
       }
     }
@@ -3443,8 +3515,8 @@
     function onAdminImageSelected(input) {
       const file = input.files && input.files[0];
       if (!file) return;
-      if (file.size > 3 * 1024 * 1024) {
-        showNotification('Imagem muito grande.', 'Escolha uma imagem de até 3 MB para economizar espaço.');
+      if (file.size > 5 * 1024 * 1024) {
+        showNotification('Imagem muito grande.', 'Escolha uma imagem de até 5 MB para economizar espaço.');
         input.value = '';
         return;
       }
@@ -3501,22 +3573,26 @@
       const musculoFinal = musculo || 'Outros';
       const equipFinal = equip || 'Não especificado';
       const editId = document.getElementById('editExerciseId').value;
+      const now = Date.now();
 
       if (editId) {
         const id = parseInt(editId);
         const index = exercises.findIndex(function (e) { return e.id === id; });
         if (index !== -1) {
-          exercises[index] = Object.assign({}, exercises[index], { nome: nome, musculo: musculoFinal, equip: equipFinal });
-        }
-        if (pendingImageDataURL) {
-          await setCustomImage(id, pendingImageDataURL);
+          exercises[index] = Object.assign({}, exercises[index], {
+            nome: nome, musculo: musculoFinal, equip: equipFinal, updatedAt: now
+          });
+          if (pendingImageDataURL) {
+            await setCustomImage(id, pendingImageDataURL);
+          }
         }
       } else {
         const newId = exercises.length > 0 ? Math.max.apply(null, exercises.map(function (e) { return e.id; })) + 1 : 1;
-        exercises.push({ id: newId, nome: nome, musculo: musculoFinal, equip: equipFinal });
+        const ex = { id: newId, nome: nome, musculo: musculoFinal, equip: equipFinal, updatedAt: now };
         if (pendingImageDataURL) {
           await setCustomImage(newId, pendingImageDataURL);
         }
+        exercises.push(ex);
       }
 
       saveExercises();
@@ -3524,7 +3600,9 @@
       renderExercicios();
       renderAdminList();
       playSound('click');
-      showNotification('✅ Exercício salvo!', nome + ' foi cadastrado na biblioteca.');
+      markDirty();
+      refreshPubStatus();
+      showNotification('✅ Exercício salvo!', nome + ' foi cadastrado. Baixe o arquivo em "Publicação" para enviar aos usuários.');
     }
 
     async function deleteExercise(id) {
@@ -3537,6 +3615,9 @@
       renderExercicios();
       renderAdminList();
       playSound('click');
+      markDirty();
+      refreshPubStatus();
+      showNotification('🗑 Exercício excluído!', (ex ? ex.nome : '') + ' foi removido. Baixe o arquivo em "Publicação" para atualizar os usuários.');
     }
 
     // ============================================================
@@ -3681,7 +3762,7 @@
 
     async function init() {
       initHeader();
-      await loadExerciseMap();
+      await loadSharedExercises();
       renderHome();
       renderTreinos();
       renderExercicios();
@@ -3728,7 +3809,6 @@
     window.updateTreino = updateTreino;
     window.deleteTreino = deleteTreino;
     window.openAdminProtected = openAdminProtected;
-    window.autoFillFromCatalog = autoFillFromCatalog;
     window.editarDadoCorpo = editarDadoCorpo;
     window.salvarMetaCorpo = salvarMetaCorpo;
     window.populateWorkoutSelector = populateWorkoutSelector;
@@ -3740,6 +3820,10 @@
     window.onAdminImageSelected = onAdminImageSelected;
     window.saveProfile = saveProfile;
     window.goTreinos = goTreinos;
+    window.exportExercisesFile = exportExercisesFile;
+    window.onImportExercisesFile = onImportExercisesFile;
+    window.refreshPubStatus = refreshPubStatus;
+    window.confirmPublished = confirmPublished;
   </script>
 </body>
 
